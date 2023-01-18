@@ -278,33 +278,6 @@ const useSimulator = () => {
 
   const [boostMultiplier, setBoostMultiplier] = useState(2.94);
 
-  const fetchOUSDDetails = async () => {
-    // Retrieve OUSD
-    const totalOusd = await fetch(ousdSupplyEndpoint).then((res) => res.json());
-    // Retrieve Current Strategies/Holdings
-    const ousdStrategies = await fetch(ousdStrategiesEndpoint)
-      .then((res) => res.json())
-      .then(({ strategies }) => strategies);
-
-    delete ousdStrategies["vault_holding"];
-
-    const totalHoldings = processStrategies(ousdStrategies);
-
-    return {
-      totalOusd,
-      totalHoldings,
-      ousdStrategies,
-      totalStables: stables.reduce(
-        (acc, key) => (acc += totalHoldings[key] || 0),
-        0
-      ),
-      holdingsSummary: stables.reduce((acc, token) => {
-        acc[token] = totalHoldings[token];
-        return acc;
-      }, {}),
-    };
-  };
-
   const fetchAPYs = async () => {
     return Promise.all([
       // Retrieve AAVE
@@ -329,11 +302,13 @@ const useSimulator = () => {
 
   useEffect(() => {
     (async function () {
-      // Fetch current holdings, ousd information, and current apys
-      const [
-        { totalStables, holdingsSummary, totalHoldings, ousdStrategies },
-        apys,
-      ] = await Promise.all([fetchOUSDDetails(), fetchAPYs()]);
+      const ousdStrategies = await fetch(ousdStrategiesEndpoint)
+        .then((res) => res.json())
+        .then(({ strategies }) => strategies);
+
+      delete ousdStrategies["vault_holding"];
+
+      const totalHoldings = processStrategies(ousdStrategies);
 
       const {
         aavestrat_holding,
@@ -421,6 +396,31 @@ const useSimulator = () => {
           morpho_strat: morphoUSDT / totalUSDT,
         },
       });
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async function () {
+      // Fetch current holdings, ousd information, and current apys
+      const ousdStrategies = await fetch(ousdStrategiesEndpoint)
+        .then((res) => res.json())
+        .then(({ strategies }) => strategies);
+
+      delete ousdStrategies["vault_holding"];
+
+      const totalHoldings = processStrategies(ousdStrategies);
+
+      const totalStables = stables.reduce(
+        (acc, key) => (acc += totalHoldings[key] || 0),
+        0
+      );
+
+      const holdingsSummary = stables.reduce((acc, token) => {
+        acc[token] = totalHoldings[token];
+        return acc;
+      }, {});
+
+      const apys = await fetchAPYs();
 
       // Determine strategy outcome
       const outcome = strategies?.map(({ strategyId, token, apy }) => {
